@@ -2,61 +2,31 @@
 
  ## Introduction
 
-OSM_ETL is a fully containerized geospatial data pipeline that automates the extraction, transformation, and loading (ETL) of OpenStreetMap (OSM) data into a PostGIS database using Apache Airflow.
-It integrates open geospatial tools such as osmconvert, osm2pgrouting, and the Overpass API to prepare structured spatial datasets for network analysis, surface mapping, and routing studies.
+OSM_ETL is a fully containerized geospatial data pipeline designed to automate the extraction, transformation, and loading (ETL) of OpenStreetMap (OSM) road network data into a PostGIS database, orchestrated by Apache Airflow. The system integrates open-source geospatial tools such as osmconvert, osm2pgrouting, and the Overpass API to efficiently process and structure spatial datasets for routing analysis, surface classification, and infrastructure mapping. By encapsulating all components, Airflow, PostGIS, and ETL scripts , in Docker containers, the project ensures portability, reproducibility, and ease of deployment across different environments. This approach simplifies complex geospatial workflows and supports scalable, automated data management for research and urban analytics.
 
-This workflow allows geospatial practitioners to streamline OSM data ingestion and ensure consistent, reproducible results.
-All components — Airflow, PostGIS, and ETL scripts — run in isolated Docker containers, making it portable and easy to deploy on any system.
-
-## Purpose
-
-The goal of this project is to automate the OSM data preparation process by:
-
-Extracting and filtering raw OSM data within a region of interest.
-
-Converting and importing road networks into a PostGIS database.
-
-Enriching the data with surface attributes from the Overpass API.
-
-Managing dependencies, scheduling, and logging using Apache Airflow.
-
-
-
+## Data Methodology 
+The project uses two main data sources: OSM geometry and OSM attributes.The OSM geometry data, available from [GeoFabrik](https://www.geofabrik.de/), provides detailed information about road networks, including road segments, intersections, and coordinates.The OSM attributes, retrieved through the [Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API), add extra details such as road types, surface materials, and other related features. All extracted data is stored and managed in a PostgreSQL/PostGIS database. The data follows an ETL (Extract, Transform, Load) process: it is first downloaded in PBF format, then filtered using osmconvert, and finally imported into the database using osm2pgrouting.
 ## Setup and Installation
 
+1. Make sure the following are installed on your system:
 
-Make sure the following are installed on your system:
-
-Docker Desktop
-
-Docker Compose
+[Docker Desktop](https://www.docker.com/products/docker-desktop/)
 
 Check installation:
 ```bash
 docker --version
-docker compose version
 ```
 
-2️⃣ Clone the Repository
-git clone https://github.com/<your-username>/OSM_ETL.git
-cd OSM_ETL
+2. Configure Environment Variables
 
-3️⃣ Configure Environment Variables
+Create .env and fill in your credentials such as database and airflow UI connections 
 
-Duplicate the example environment file:
-
-cp .env.example .env
-
-
-Then open .env and fill in your credentials
-
-
-4️⃣ Build and Start Containers
+3. Build and Start Containers
 
 Run the entire system with:
-
+```bash
 docker compose up --build
-
+```
 
 This will:
 
@@ -68,15 +38,15 @@ Automatically create the admin Airflow user defined in .env
 
 ![Project Architecture](figures/pic4.png)
 
-5️⃣ Access the Airflow Web Interface
+5️. Access the Airflow Web Interface
 
 Once containers are running, open:
 👉 http://localhost:8080
 
 Login using:
 
-Username: admin  
-Password: airflow
+Username: your user name   
+Password: your password
 
 🧪 Checking if Everything Works Properly
 
@@ -86,9 +56,9 @@ In the Airflow UI, go to the DAGs tab.
 
 You should see:
 
-etl_geom_dag
+## etl_geom_dag
 
-etl_surface_dag
+## etl_surface_dag
 
 Trigger each DAG manually (click the ► toggle).
 
@@ -98,52 +68,41 @@ If successful, you’ll see green boxes (success) and logs under Task Instance L
 ![Project Architecture](figures/pic5.png)
 ![Project Architecture](figures/pic6.png)
 
-🗃️ Inspect the Database
+ After Inspdags completed successfullyi , inspect the Database
 
 Open the PostGIS shell:
-
+```bash
 docker exec -it etl_postgis psql -U postgres -d gisdb
+```
 
-
-Then check if tables exist:
-
+Check the list of tables created in this schema:
+```bash
 \dt novaims.*;
-
+```
 ![Project Architecture](figures/pic3.png)
 
 
 And inspect data:
 
 1. count number of rows in the table
-
+```bash
 SELECT COUNT(*) FROM novaims.tb_highway_surface;
-
+```
 2. Display 10 rows of the table
-
+```bash
 SELECT * FROM novaims.tb_highway_surface LIMIT 10;
-
+```
 ![Project Architecture](figures/pic2.png)
 
 3. Run aggregation 
-
+```bash
  SELECT surface, COUNT(*) AS total
 FROM novaims.tb_highway_surface
 GROUP BY surface
 ORDER BY total DESC
 LIMIT 10;
-
+```
 ![Project Architecture](figures/pic1.png)
-
-🧩 Common Commands
-Command	Description
-bash docker compose up --build	Build and start all services
-bash docker compose down	Stop and remove containers
-bash docker compose logs -f airflow_etl	Stream Airflow logs
-bash docker exec -it airflow_etl bash	Enter Airflow container shell
-bash docker exec -it etl_postgis psql -U postgres -d gisdb	Access PostGIS database
-🪪 License
-
-This project is licensed under the MIT License.
 
 📚 Credits
 
