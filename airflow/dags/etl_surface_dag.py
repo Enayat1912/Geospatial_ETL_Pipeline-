@@ -8,6 +8,7 @@ default_args = {
     "retry_delay": timedelta(minutes=2),
 }
 
+
 with DAG(
     dag_id="etl_surface_dag",
     default_args=default_args,
