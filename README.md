@@ -6,6 +6,36 @@ OSM_ETL is a fully containerized geospatial data pipeline designed to automate t
 
 ## Data Methodology 
 The project uses two main data sources: OSM geometry and OSM attributes.The OSM geometry data, available from [GeoFabrik](https://www.geofabrik.de/), provides detailed information about road networks, including road segments, intersections, and coordinates.The OSM attributes, retrieved through the [Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API), add extra details such as road types, surface materials, and other related features. All extracted data is stored and managed in a PostgreSQL/PostGIS database. The data follows an ETL (Extract, Transform, Load) process: it is first downloaded in PBF format, then filtered using osmconvert, and finally imported into the database using osm2pgrouting.
+
+## Project Structure 
+```bash
+OSM_ETL/
+├── airflow/                        # Airflow configuration and DAG definitions
+│   ├── dags/                       # Workflow scripts controlling ETL execution
+│   │   ├── etl_geom_dag.py         # DAG for geometry extraction and import
+│   │   └── etl_surface_dag.py      # DAG for surface attribute extraction
+│   └── entrypoint.sh               # Airflow startup and initialization script
+│
+├── config/                         # Configuration files for ETL parameters
+│   ├── 00_proj.yml                 # YAML file defining project and database settings
+│   └── mapconfig_for_cars.xml      # Configuration for osm2pgrouting import rules
+│
+├── db/                             # Database initialization resources
+│   └── create_tables.sql           # SQL script creating PostGIS schemas and tables
+│
+├── etl/                            # Core Python ETL scripts
+│   ├── etl_geom.py                 # Handles geometry extraction, conversion, and loading
+│   └── etl_surface.py              # Fetches and loads surface attributes via Overpass API
+│
+├── figures/                        # Folder for images, diagrams, and visual assets
+│
+├── .env.example                    # Example environment file (copy and rename to .env)
+├── docker-compose.yml              # Defines and orchestrates Docker containers
+├── Dockerfile.airflow              # Dockerfile for building the Airflow service
+├── Dockerfile                      # Base Docker image configuration
+├── requirements.txt                # Python dependencies list
+└── README.md                       # Documentation and usage instructions
+```
 ## Setup and Installation
 
 1. Make sure the following are installed on your system:
