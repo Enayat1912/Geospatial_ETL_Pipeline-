@@ -20,8 +20,6 @@ DECLARE
     maxx DOUBLE PRECISION := 9.15;
     maxy DOUBLE PRECISION := 48.60;
 
-
-
     cell_size_deg DOUBLE PRECISION := 0.01;
 
     x_steps INTEGER;
