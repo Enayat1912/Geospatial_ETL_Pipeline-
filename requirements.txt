@@ -1,0 +1,6 @@
+requests
+pyyaml
+shapely
+geopandas
+psycopg2-binary
+pandas

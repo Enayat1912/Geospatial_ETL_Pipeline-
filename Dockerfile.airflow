@@ -1,0 +1,40 @@
+FROM apache/airflow:2.10.2-python3.10
+
+# 1. become root to install system packages we need for geospatial + osm tools
+USER root
+
+RUN apt-get update && apt-get install -y \
+    gdal-bin \
+    libgdal-dev \
+    libproj-dev \
+    proj-data \
+    proj-bin \
+    gcc \
+    g++ \
+    curl \
+    osm2pgrouting \
+    osmctools \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+# env hints for GDAL / Fiona / GeoPandas wheels
+ENV CPLUS_INCLUDE_PATH=/usr/include/gdal
+ENV C_INCLUDE_PATH=/usr/include/gdal
+ENV GDAL_CONFIG=/usr/bin/gdal-config
+
+# 2. switch back to airflow user BEFORE pip install
+USER airflow
+
+# Airflow base image already sets AIRFLOW_HOME to /opt/airflow
+# We'll still run our ETL code out of /app
+WORKDIR /app
+
+# 3. install Python deps for ETL (psycopg2, geopandas, etc)
+# copy requirements in as airflow user
+COPY --chown=airflow:airflow requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
+# 4. copy project code so Airflow tasks can run python etl/*.py
+COPY --chown=airflow:airflow etl /app/etl
+COPY --chown=airflow:airflow config /app/config
+

@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.pyc
+
+# Secrets
+.env
+
+
+# Docker volumes / temp
+tmp/
+*.log
+*.gpkg
+*.sqlite
