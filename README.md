@@ -35,6 +35,7 @@ Check installation:
 ```bash
 docker --version
 docker compose version
+```
 
 2️⃣ Clone the Repository
 git clone https://github.com/<your-username>/OSM_ETL.git
