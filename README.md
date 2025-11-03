@@ -1,5 +1,6 @@
-🗺️ OSM_ETL: Automated Geospatial ETL Pipeline with Airflow and PostGIS
-🌍 Introduction
+# OSM_ETL: Automated Geospatial ETL Pipeline with Airflow and PostGIS
+
+ ## Introduction
 
 OSM_ETL is a fully containerized geospatial data pipeline that automates the extraction, transformation, and loading (ETL) of OpenStreetMap (OSM) data into a PostGIS database using Apache Airflow.
 It integrates open geospatial tools such as osmconvert, osm2pgrouting, and the Overpass API to prepare structured spatial datasets for network analysis, surface mapping, and routing studies.
@@ -7,7 +8,7 @@ It integrates open geospatial tools such as osmconvert, osm2pgrouting, and the O
 This workflow allows geospatial practitioners to streamline OSM data ingestion and ensure consistent, reproducible results.
 All components — Airflow, PostGIS, and ETL scripts — run in isolated Docker containers, making it portable and easy to deploy on any system.
 
-🎯 Purpose
+## Purpose
 
 The goal of this project is to automate the OSM data preparation process by:
 
@@ -19,35 +20,10 @@ Enriching the data with surface attributes from the Overpass API.
 
 Managing dependencies, scheduling, and logging using Apache Airflow.
 
-🧱 Project Structure
-OSM_ETL/
-├── airflow/
-│   ├── dags/                     # Airflow DAGs (task definitions)
-│   │   ├── etl_geom_dag.py
-│   │   └── etl_surface_dag.py
-│   └── entrypoint.sh             # Airflow startup and initialization script
-│
-├── config/                       # Configuration files
-│   ├── 00_proj.yml               # YAML config for ETL parameters
-│   └── mapconfig_for_cars.xml    # OSM2PgRouting configuration
-│
-├── db/
-│   └── create_tables.sql         # Database schema initialization (PostGIS tables)
-│
-├── etl/                          # Core ETL scripts
-│   ├── etl_geom.py               # Geometry extraction and loading
-│   └── etl_surface.py            # Surface attribute extraction via Overpass
-│
 
-├── .env.example                  # Example environment file (copy to .env)
-├── docker-compose.yml            # Multi-container orchestration
-├── Dockerfile.airflow            # Airflow build definition
-├── Dockerfile                    # Base image configuration
-├── requirements.txt              # Python dependencies
-└── README.md
 
-⚙️ Setup and Installation
-1️⃣ Install Required Tools
+## Setup and Installation
+
 
 Make sure the following are installed on your system:
 
@@ -56,7 +32,7 @@ Docker Desktop
 Docker Compose
 
 Check installation:
-
+```bash
 docker --version
 docker compose version
 
