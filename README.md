@@ -11,30 +11,33 @@ The project uses two main data sources: OSM geometry and OSM attributes.The OSM 
 ```bash
 OSM_ETL/
 ├── airflow/                        # Airflow configuration and DAG definitions
-│   ├── dags/                       # Workflow scripts controlling ETL execution
+│   ├── dags/                  
 │   │   ├── etl_geom_dag.py         # DAG for geometry extraction and import
 │   │   └── etl_surface_dag.py      # DAG for surface attribute extraction
 │   └── entrypoint.sh               # Airflow startup and initialization script
 │
 ├── config/                         # Configuration files for ETL parameters
+
 │   ├── 00_proj.yml                 # YAML file defining project and database settings
 │   └── mapconfig_for_cars.xml      # Configuration for osm2pgrouting import rules
 │
 ├── db/                             # Database initialization resources
+
 │   └── create_tables.sql           # SQL script creating PostGIS schemas and tables
 │
 ├── etl/                            # Core Python ETL scripts
+
 │   ├── etl_geom.py                 # Handles geometry extraction, conversion, and loading
 │   └── etl_surface.py              # Fetches and loads surface attributes via Overpass API
 │
 ├── figures/                        # Folder for images, diagrams, and visual assets
 │
-├── .env.example                    # Example environment file (copy and rename to .env)
+├── .env                            # Environment file 
 ├── docker-compose.yml              # Defines and orchestrates Docker containers
 ├── Dockerfile.airflow              # Dockerfile for building the Airflow service
 ├── Dockerfile                      # Base Docker image configuration
 ├── requirements.txt                # Python dependencies list
-└── README.md                       # Documentation and usage instructions
+└── README.md                      
 ```
 ## Setup and Installation
 
