@@ -35,6 +35,6 @@ COPY etl /app/etl
 COPY config /app/config
 COPY db /app/db
 
-# by default, the container won't auto-run anything
+
 # docker-compose overrides this with its own command
 CMD ["python", "etl/etl_geom.py"]
