@@ -1,150 +1,210 @@
+#!/usr/bin/env python3
+"""
+Geometry ETL
+
+Stages
+  1) extract   -> download OSM PBF for the region
+  2) transform -> clip with osmconvert using a bounding box
+  3) load      -> import into PostGIS with osm2pgrouting
+
+Examples
+  python etl/etl_geom.py --stage all
+  python etl/etl_geom.py --stage extract --pbf temporary_data.osm.pbf
+  python etl/etl_geom.py --stage load --clipped region_clip.osm.pbf
+  python etl/etl_geom.py --stage all --keep
+"""
+
+from __future__ import annotations
+
+import argparse
+import logging
 import os
 import subprocess
 import urllib.request
-import argparse
+from typing import Dict
+
 import yaml
 
 
-def load_config():
-    """
-    Load YAML configuration and resolve database details from environment variables.
-    """
-    with open("config/00_proj.yml", "r") as config_file:
-        raw_cfg = yaml.safe_load(config_file)
+# ---------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s",
+)
+log = logging.getLogger("geom_etl")
 
-    dbp = raw_cfg.get("db_params", {})
-    resolved_dbp = {
+
+# ---------------------------------------------------------------------
+# Config
+# ---------------------------------------------------------------------
+def load_config() -> Dict:
+    """
+    Load YAML config and resolve database details from environment variables.
+    Expects config/00_proj.yml in the project.
+    """
+    with open("config/00_proj.yml", "r", encoding="utf-8") as f:
+        cfg = yaml.safe_load(f)
+
+    dbp = cfg.get("db_params", {})
+    cfg["db_params"] = {
         "dbname": os.getenv("POSTGRES_DB", dbp.get("dbname")),
         "user": os.getenv("POSTGRES_USER", dbp.get("user")),
         "host": os.getenv("POSTGRES_HOST", dbp.get("host")),
         "port": os.getenv("POSTGRES_PORT", dbp.get("port")),
         "password": os.getenv("POSTGRES_PASSWORD", dbp.get("password")),
     }
-
-    raw_cfg["db_params"] = resolved_dbp
-    return raw_cfg
+    return cfg
 
 
-def download_osm_pbf(url, out_path="temporary_data.osm.pbf"):
+# ---------------------------------------------------------------------
+# Steps
+# ---------------------------------------------------------------------
+def download_osm_pbf(url: str, out_path: str) -> str:
     """
-    Extract step: download the OSM pbf file for the region of interest.
+    Extract step. Download the PBF extract for the region of interest.
     """
-    print(f"Downloading OSM PBF file from: {url}")
+    log.info("Downloading OSM PBF from %s", url)
     urllib.request.urlretrieve(url, out_path)
-    print(f"Download complete: {out_path}")
+    log.info("Download complete: %s", out_path)
     return out_path
 
 
-def run_osmconvert(bounding_box, osmconvert_output, in_path="temporary_data.osm.pbf"):
+def run_osmconvert(bounding_box: str, out_path: str, in_path: str) -> str:
     """
-    Transform step: clip and simplify the OSM extract within the bounding box.
+    Transform step. Clip PBF to a bounding box and keep complete ways.
     """
-    print("Running osmconvert command")
-    cmd = (
-        f"osmconvert {in_path} "
-        f"-b={bounding_box} "
-        f"--complete-ways "
-        f"--drop-author --drop-version "
-        f"-o={osmconvert_output}"
-    )
-    subprocess.run(cmd, shell=True, check=True)
-    print(f"osmconvert finished. Output: {osmconvert_output}")
-    return osmconvert_output
+    log.info("Running osmconvert to clip %s -> %s", in_path, out_path)
+    # Use exec form for safety and clearer errors
+    cmd = [
+        "osmconvert",
+        in_path,
+        f"-b={bounding_box}",
+        "--complete-ways",
+        "--drop-author",
+        "--drop-version",
+        f"-o={out_path}",
+    ]
+    subprocess.run(cmd, check=True)
+    log.info("osmconvert finished: %s", out_path)
+    return out_path
 
 
-def run_osm2pgrouting(osmconvert_output, osm2pgrouting_config, db_params):
+def run_osm2pgrouting(clipped_path: str, osm2pg_cfg: str, db: Dict) -> None:
     """
-    Load step: import clipped OSM data into PostGIS with osm2pgrouting.
+    Load step. Import the clipped network into PostGIS using osm2pgrouting.
     """
-    print("Running osm2pgrouting command")
-    cmd = (
-        f"osm2pgrouting --chunk 100000 -f {osmconvert_output} "
-        f"--dbname {db_params['dbname']} "
-        f"--username {db_params['user']} "
-        f"--host {db_params['host']} "
-        f"--port {db_params['port']} "
-        f"-W {db_params['password']} "
-        f"-c {osm2pgrouting_config} "
-        f"--schema novaims"
-    )
-    subprocess.run(cmd, shell=True, check=True)
-    print("osm2pgrouting import completed")
+    log.info("Running osm2pgrouting to load %s", clipped_path)
+    cmd = [
+        "osm2pgrouting",
+        "--chunk", "100000",
+        "-f", clipped_path,
+        "--dbname", db["dbname"],
+        "--username", db["user"],
+        "--host", db["host"],
+        "--port", str(db["port"]),
+        "-W", db["password"],
+        "-c", osm2pg_cfg,
+        "--schema", "novaims",
+    ]
+    subprocess.run(cmd, check=True)
+    log.info("osm2pgrouting import completed")
 
 
-def clean_up(paths):
+def clean_up(paths: list[str]) -> None:
     """
     Remove temporary files if they exist.
     """
-    print("Cleaning up temporary files")
     for p in paths:
-        if p and os.path.exists(p):
-            os.remove(p)
-            print(f"Removed {p}")
-    print("Cleanup complete")
+        try:
+            if p and os.path.exists(p):
+                os.remove(p)
+                log.info("Removed %s", p)
+        except Exception as e:
+            log.warning("Could not remove %s: %s", p, e)
 
 
-def step_extract(cfg):
-    return download_osm_pbf(cfg["osm_pbf_url"], "temporary_data.osm.pbf")
+# Convenience wrappers used by CLI
+def step_extract(cfg: Dict, out_path: str) -> str:
+    return download_osm_pbf(cfg["osm_pbf_url"], out_path)
 
 
-def step_transform(cfg, in_path="temporary_data.osm.pbf"):
-    return run_osmconvert(cfg["bounding_box"], cfg["osmconvert_output"], in_path)
+def step_transform(cfg: Dict, in_path: str, out_path: str) -> str:
+    return run_osmconvert(cfg["bounding_box"], out_path, in_path)
 
 
-def step_load(cfg, osm_path):
-    run_osm2pgrouting(osm_path, cfg["osm2pgrouting_config"], cfg["db_params"])
+def step_load(cfg: Dict, clipped_path: str) -> None:
+    run_osm2pgrouting(clipped_path, cfg["osm2pgrouting_config"], cfg["db_params"])
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
+# ---------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------
+def parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(description="Geometry ETL pipeline")
+    p.add_argument(
         "--stage",
         choices=["extract", "transform", "load", "all"],
         default="all",
-        help="Which stage to run"
+        help="Which stage to run",
     )
-    parser.add_argument(
+    p.add_argument(
+        "--pbf",
+        default="temporary_data.osm.pbf",
+        help="Path to the raw downloaded PBF",
+    )
+    p.add_argument(
+        "--clipped",
+        default=None,
+        help="Path for the clipped PBF output. Defaults to config.osmconvert_output",
+    )
+    p.add_argument(
         "--keep",
         action="store_true",
-        help="Keep intermediate files instead of deleting them"
+        help="Keep intermediate files instead of deleting them",
     )
-    args = parser.parse_args()
+    return p.parse_args()
 
-    print("Starting geometry ETL")
+
+def main() -> None:
+    args = parse_args()
     cfg = load_config()
 
-    tmp_pbf = "temporary_data.osm.pbf"
-    clipped = cfg["osmconvert_output"]
+    raw_pbf = args.pbf
+    clipped_pbf = args.clipped or cfg["osmconvert_output"]
+
+    log.info("Starting geometry ETL")
 
     try:
         if args.stage in ("extract", "all"):
-            tmp_pbf = step_extract(cfg)
+            raw_pbf = step_extract(cfg, out_path=raw_pbf)
 
         if args.stage in ("transform", "all"):
-            # ensure the extract exists if someone runs transform alone
-            if not os.path.exists(tmp_pbf):
-                tmp_pbf = step_extract(cfg)
-            clipped = step_transform(cfg, tmp_pbf)
+            if not os.path.exists(raw_pbf):
+                raw_pbf = step_extract(cfg, out_path=raw_pbf)
+            clipped_pbf = step_transform(cfg, in_path=raw_pbf, out_path=clipped_pbf)
 
         if args.stage in ("load", "all"):
-            # ensure we have a clipped file if someone runs load alone
-            if not os.path.exists(clipped):
-                if not os.path.exists(tmp_pbf):
-                    tmp_pbf = step_extract(cfg)
-                clipped = step_transform(cfg, tmp_pbf)
-            step_load(cfg, clipped)
+            if not os.path.exists(clipped_pbf):
+                if not os.path.exists(raw_pbf):
+                    raw_pbf = step_extract(cfg, out_path=raw_pbf)
+                clipped_pbf = step_transform(cfg, in_path=raw_pbf, out_path=clipped_pbf)
+            step_load(cfg, clipped_path=clipped_pbf)
 
-        print("OSM geometry ETL finished")
+        log.info("OSM geometry ETL finished successfully")
 
     except subprocess.CalledProcessError as e:
-        print(f"Error during ETL subprocess execution: {e}")
+        log.exception("Subprocess failed: %s", e)
         raise
     except Exception as e:
-        print(f"Unexpected error: {e}")
+        log.exception("Unexpected error: %s", e)
         raise
     finally:
-        if not args.keep:
-            # If you just ran load or all, it is safe to clean up
-            if args.stage in ("load", "all"):
-                clean_up([tmp_pbf, clipped])
-        print("ETL process complete")
+        if not args.keep and args.stage in ("load", "all"):
+            clean_up([raw_pbf, clipped_pbf])
+        log.info("ETL process complete")
+
+
+if __name__ == "__main__":
+    main()
